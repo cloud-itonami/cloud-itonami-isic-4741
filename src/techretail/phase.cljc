@@ -26,9 +26,11 @@
   `:actuation/fulfill-order`/`:actuation/issue-sanitization-
   certificate` high-stakes gate enforces the same invariant
   independently -- two layers, not one, agree on this.
-  `:trade-in-condition/screen`/`:robotics/simulate-data-wipe` are
-  likewise never auto-eligible, at any phase -- the same posture every
-  sibling's screening/verification op has.
+  `:trade-in-condition/screen`/`:robotics/simulate-data-wipe`/
+  `:robotics/simulate-drop-test` (ADR-2607152000, the real `physics-2d`-
+  backed functional drop/shock-test mission) are likewise never
+  auto-eligible, at any phase -- the same posture every sibling's
+  screening/verification op has.
   Phase 3's `:auto` set here has only ONE member (`:order/intake`) --
   this domain has no separate no-capital-risk 'file' lifecycle distinct
   from the order record itself."
@@ -36,7 +38,7 @@
 
 (def read-ops  #{})
 (def write-ops #{:order/intake :consumer-protection-rules/verify :trade-in-condition/screen
-                 :robotics/simulate-data-wipe
+                 :robotics/simulate-data-wipe :robotics/simulate-drop-test
                  :actuation/fulfill-order :actuation/issue-sanitization-certificate})
 
 ;; NOTE the invariant: `:actuation/fulfill-order`/`:actuation/issue-
@@ -49,7 +51,7 @@
   {0 {:label "read-only"        :writes #{}                                                          :auto #{}}
    1 {:label "assisted-intake"  :writes #{:order/intake}                                             :auto #{}}
    2 {:label "assisted-verify"  :writes #{:order/intake :consumer-protection-rules/verify :trade-in-condition/screen
-                                          :robotics/simulate-data-wipe}                               :auto #{}}
+                                          :robotics/simulate-data-wipe :robotics/simulate-drop-test}   :auto #{}}
    3 {:label "supervised-auto"  :writes write-ops
       :auto #{:order/intake}}})
 

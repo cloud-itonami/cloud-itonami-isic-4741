@@ -1,12 +1,20 @@
 (ns techretail.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean order + bundled
-  trade-in device through intake -> consumer-protection requirements
-  verification -> trade-in-condition screening -> robot certified data-
-  wipe mission (always escalates) -> human approval -> commit (order-
-  fulfillment), then through Certificate-of-Data-Destruction proposal
-  (always escalates) -> human approval -> commit, then shows six HARD
-  holds (a jurisdiction with no spec-basis, an order whose recorded
-  total does not reconcile with its own line-items, a trade-in device
+  "Demo driver -- `clojure -M:dev:run`. `robotics/simulate-drop-test`
+  (ADR-2607152000, extending ADR-2607151600's automotive pilot to this
+  vertical) now actually runs `physics-2d`'s real time-stepped free-
+  fall/impact simulation for a trade-in device's own `:device-class`/
+  `:device-mass-kg` -- see `techretail.robotics` for what is genuinely
+  simulated vs. disclosed simplification; the data-wipe mission stays
+  symbolic, unchanged, since data sanitization genuinely is not a
+  physics event. Walks a clean order + bundled trade-in device through
+  intake -> consumer-protection requirements verification ->
+  trade-in-condition screening -> robot certified data-wipe mission
+  (always escalates) -> robot functional drop/shock-test mission
+  (always escalates) -> human approval -> commit (order-fulfillment),
+  then through Certificate-of-Data-Destruction proposal (always
+  escalates) -> human approval -> commit, then shows seven HARD holds
+  (a jurisdiction with no spec-basis, an order whose recorded total
+  does not reconcile with its own line-items, a trade-in device
   screened for an unresolved grading defect DIRECTLY via `:trade-in-
   condition/screen` [never via an actuation op against an unscreened
   device -- see this actor's own governor ns docstring / the lesson
@@ -14,10 +22,14 @@
   Decision 5 and its many other siblings already recorded], an order
   fulfillment proposed before its consumer-protection evidence was ever
   verified, a Certificate-of-Data-Destruction proposed before the data-
-  wipe mission ever ran, and one whose mission ran and reported
-  :passed? but whose OWN post-wipe verification read still shows a
-  recoverable sector on independent recheck) that never reach a human
-  at all, plus a double fulfillment/certificate-issuance of an already-
+  wipe mission ever ran, one whose mission ran and reported :passed?
+  but whose OWN post-wipe verification read still shows a recoverable
+  sector on independent recheck, and one (a small-form-factor mini-PC
+  mistakenly routed through the standard portable drop-test procedure)
+  whose drop-test mission ran and reported :passed? but whose OWN
+  REAL `physics-2d`-simulated impact-deceleration telemetry is out of
+  tolerance on independent recheck) that never reach a human at all,
+  plus a double fulfillment/certificate-issuance of an already-
   processed order/device -- and prints the audit ledger + the draft
   order-fulfillment and Certificate-of-Data-Destruction records."
   (:require [langgraph.graph :as g]
@@ -52,6 +64,10 @@
     (println (exec! actor "t3b" {:op :robotics/simulate-data-wipe :subject "unit-1"} operator))
     (println (approve! actor "t3b"))
 
+    (println "== robotics/simulate-drop-test unit-1 (real physics-2d free-fall/impact simulation, laptop-class device clears tolerance; escalates -- human approves) ==")
+    (println (exec! actor "t3c" {:op :robotics/simulate-drop-test :subject "unit-1"} operator))
+    (println (approve! actor "t3c"))
+
     (println "== actuation/fulfill-order order-1 (always escalates -- actuation/fulfill-order) ==")
     (let [r (exec! actor "t4" {:op :actuation/fulfill-order :subject "order-1"} operator)]
       (println r)
@@ -85,6 +101,9 @@
 
     (println "== actuation/issue-sanitization-certificate unit-3 (sanitization-sim-verified? true on file, but post-wipe-recoverable-sectors-found=4 on independent recheck -> HARD hold) ==")
     (println (exec! actor "t12" {:op :actuation/issue-sanitization-certificate :subject "unit-3"} operator))
+
+    (println "== actuation/issue-sanitization-certificate unit-5 (drop-test-sim-verified? true on file, but a real re-run physics-2d drop/shock simulation of this mini-PC mistakenly processed via the standard portable drop-test procedure shows ~667g exceeding the real tolerance ceiling on independent recheck -> HARD hold) ==")
+    (println (exec! actor "t12b" {:op :actuation/issue-sanitization-certificate :subject "unit-5"} operator))
 
     (println "== actuation/fulfill-order order-1 AGAIN (double-fulfillment -> HARD hold) ==")
     (println (exec! actor "t13" {:op :actuation/fulfill-order :subject "order-1"} operator))

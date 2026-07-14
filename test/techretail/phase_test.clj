@@ -35,6 +35,17 @@
   (is (contains? (:writes (get phase/phases 3)) :robotics/simulate-data-wipe))
   (is (not (contains? (:writes (get phase/phases 1)) :robotics/simulate-data-wipe))))
 
+(deftest robotics-simulate-drop-test-never-auto-at-any-phase
+  (testing "the robot functional drop/shock-test mission (ADR-2607152000, a REAL physics-2d free-fall/impact simulation) carries no direct capital risk, but is still never auto-eligible, matching every sibling verification op in this fleet"
+    (doseq [[n {:keys [auto]}] phase/phases]
+      (is (not (contains? auto :robotics/simulate-drop-test))
+          (str "phase " n " must not auto-commit :robotics/simulate-drop-test")))))
+
+(deftest robotics-simulate-drop-test-enabled-from-phase-2
+  (is (contains? (:writes (get phase/phases 2)) :robotics/simulate-drop-test))
+  (is (contains? (:writes (get phase/phases 3)) :robotics/simulate-drop-test))
+  (is (not (contains? (:writes (get phase/phases 1)) :robotics/simulate-drop-test))))
+
 (deftest phase-0-is-fully-read-only
   (is (empty? (:writes (get phase/phases 0)))))
 

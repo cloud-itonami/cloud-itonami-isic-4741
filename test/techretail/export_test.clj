@@ -27,6 +27,8 @@
     (approve! actor "s")
     (exec! actor "w" {:op :robotics/simulate-data-wipe :subject "unit-1"})
     (approve! actor "w")
+    (exec! actor "d" {:op :robotics/simulate-drop-test :subject "unit-1"})
+    (approve! actor "d")
     (exec! actor "c" {:op :actuation/issue-sanitization-certificate :subject "unit-1"})
     (approve! actor "c")
     db))
@@ -62,5 +64,5 @@
         bundle (export/package->csv-bundle db)]
     (is (= 0 (get-in pkg [:counts :fulfillments])))
     (is (= 4 (get-in pkg [:counts :orders])))
-    (is (= 4 (get-in pkg [:counts :trade-in-units])))
+    (is (= 5 (get-in pkg [:counts :trade-in-units])))
     (is (str/includes? (get bundle "ledger.csv") "seq,t,op"))))

@@ -5,7 +5,9 @@
   It normalizes order-intake, drafts a per-jurisdiction consumer-
   protection / distance-selling evidence checklist for an order,
   screens trade-in devices for an unresolved grading/defect finding,
-  drafts the robot certified-data-wipe mission result, drafts the
+  drafts the robot certified-data-wipe mission result, drafts the robot
+  functional drop/shock-test mission result (ADR-2607152000, a REAL
+  `physics-2d`-simulated free-fall/impact check), drafts the
   order-fulfillment action, and drafts the Certificate-of-Data-
   Destruction-issuance action. CRITICAL: it is a smart-but-untrusted
   advisor. It returns a *proposal* (with a rationale + the fields it
@@ -140,6 +142,43 @@
          :stake      nil
          :confidence 0.95}))))
 
+(defn- simulate-drop-test
+  "Runs the robot functional drop/shock-test mission
+  (`techretail.robotics`, ADR-2607152000) and drafts its result as a
+  proposal. This ACTUALLY runs `physics-2d`'s real time-stepped
+  free-fall/impact simulation (see `techretail.robotics/simulate-drop-
+  test`'s docstring) from the trade-in-unit's own recorded
+  `:device-class`/`:device-mass-kg` fields. High confidence -- the
+  mission itself is deterministic simulated telemetry derived from a
+  REAL physics simulation, not an LLM guess; the Retail Governor still
+  independently re-derives :passed? from the REAL `:sim-impact-decel-g`
+  telemetry this drafts before any `:actuation/issue-sanitization-
+  certificate` proposal may commit -- see `techretail.governor`'s
+  `drop-test-violations`."
+  [db {:keys [subject]}]
+  (let [u (store/trade-in-unit db subject)]
+    (if (nil? u)
+      {:summary "対象トレードイン機記録が見つかりません" :rationale "no trade-in-unit record"
+       :cites [] :effect :trade-in-unit/upsert :value {:id subject :drop-test-sim-verified? false}
+       :stake nil :confidence 0.0}
+      (let [{:keys [mission actions passed? sim-impact-decel-g sim-impact-penetration-m]}
+            (robotics/simulate-drop-test subject u)]
+        {:summary    (str subject ": 機能落下/衝撃試験 " (if passed? "合格" "不合格"))
+         :rationale  (str "mission=" (:mission/id mission) " actions=" (count actions)
+                          " sim-impact-decel-g=" sim-impact-decel-g
+                          " sim-impact-penetration-m=" sim-impact-penetration-m)
+         :cites      [(:mission/id mission)]
+         :effect     :trade-in-unit/upsert
+         :value      {:id subject
+                      :drop-test-sim-verified? passed?
+                      :sim-impact-decel-g sim-impact-decel-g
+                      :sim-impact-penetration-m sim-impact-penetration-m
+                      :drop-test-sim-record {:mission-id (:mission/id mission)
+                                             :actions (mapv #(dissoc % :action) actions)
+                                             :passed? passed?}}
+         :stake      nil
+         :confidence 0.95}))))
+
 (defn- propose-fulfill-order
   "Draft the actual ORDER-FULFILLMENT action -- shipping a real
   purchased device to a customer. ALWAYS `:stake :actuation/fulfill-
@@ -192,6 +231,7 @@
     :consumer-protection-rules/verify           (verify-consumer-protection db request)
     :trade-in-condition/screen                  (screen-trade-in-condition db request)
     :robotics/simulate-data-wipe                (simulate-data-wipe db request)
+    :robotics/simulate-drop-test                (simulate-drop-test db request)
     :actuation/fulfill-order                    (propose-fulfill-order db request)
     :actuation/issue-sanitization-certificate   (propose-sanitization-certificate db request)
     {:summary "未対応の操作" :rationale (str op) :cites []
@@ -216,7 +256,9 @@
        ":consumer-protection-verification/set|:trade-in-condition-screen/set|"
        ":order/mark-fulfilled|:trade-in-unit/mark-sanitization-certified) "
        "(:robotics/simulate-data-wipe も :trade-in-unit/upsert で "
-       ":sanitization-sim-verified? を提案する) "
+       ":sanitization-sim-verified? を提案する。"
+       ":robotics/simulate-drop-test も :trade-in-unit/upsert で "
+       ":drop-test-sim-verified? / :sim-impact-decel-g を提案する) "
        ":stake(:actuation/fulfill-order か :actuation/issue-sanitization-certificate か nil) :confidence(0..1)。\n"
        "重要: 登録されていない法域の要件を絶対に創作してはいけません。"
        "spec-basisが無い場合は :cites を空にし confidence を上げないこと。"))
@@ -226,6 +268,7 @@
     :consumer-protection-rules/verify           {:order (store/order st subject)}
     :trade-in-condition/screen                  {:trade-in-unit (store/trade-in-unit st subject)}
     :robotics/simulate-data-wipe                {:trade-in-unit (store/trade-in-unit st subject)}
+    :robotics/simulate-drop-test                {:trade-in-unit (store/trade-in-unit st subject)}
     :actuation/fulfill-order                    {:order (store/order st subject)}
     :actuation/issue-sanitization-certificate   {:trade-in-unit (store/trade-in-unit st subject)}
     {:order (store/order st subject) :trade-in-unit (store/trade-in-unit st subject)}))

@@ -59,6 +59,21 @@
   (exec-op actor (str tid-prefix "-wipe") {:op :robotics/simulate-data-wipe :subject subject} operator)
   (approve! actor (str tid-prefix "-wipe")))
 
+(defn- simulate-drop-test!
+  "Walks `subject` (a trade-in-unit-id) through the robot functional
+  drop/shock-test mission (ADR-2607152000, a REAL `physics-2d`-
+  simulated free-fall/impact check) -> approve, leaving `:drop-test-
+  sim-verified?` on file. Only meaningful to call for a device whose
+  own `:device-class`/`:device-mass-kg` genuinely clears the real
+  simulated tolerance -- a device whose real simulated impact-
+  deceleration is out of tolerance still gets `:drop-test-sim-
+  verified?` recorded (per whatever the mission itself found), but
+  `techretail.governor`'s independent recheck HARD-holds regardless
+  (see `drop-test-out-of-tolerance-is-held`)."
+  [actor tid-prefix subject]
+  (exec-op actor (str tid-prefix "-drop") {:op :robotics/simulate-drop-test :subject subject} operator)
+  (approve! actor (str tid-prefix "-drop")))
+
 (deftest clean-order-intake-auto-commits
   (let [[db actor] (fresh)
         res (exec-op actor "t1"
@@ -131,10 +146,11 @@
           (is (= 1 (count (store/fulfillment-history db))) "one draft fulfillment record"))))))
 
 (deftest issue-sanitization-certificate-always-escalates-then-human-decides
-  (testing "a clean, fully-wiped, resolved-defect device still ALWAYS interrupts for human approval -- actuation/issue-sanitization-certificate is never auto"
+  (testing "a clean, fully-wiped, resolved-defect, drop-test-cleared device still ALWAYS interrupts for human approval -- actuation/issue-sanitization-certificate is never auto"
     (let [[db actor] (fresh)
           _ (screen! actor "t8pre" "unit-1")
           _ (simulate-data-wipe! actor "t8pre2" "unit-1")
+          _ (simulate-drop-test! actor "t8pre3" "unit-1")
           r1 (exec-op actor "t8" {:op :actuation/issue-sanitization-certificate :subject "unit-1"} operator)]
       (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
       (testing "approve -> commit, certificate record drafted"
@@ -159,6 +175,7 @@
     (let [[db actor] (fresh)
           _ (screen! actor "t10pre" "unit-1")
           _ (simulate-data-wipe! actor "t10pre2" "unit-1")
+          _ (simulate-drop-test! actor "t10pre3" "unit-1")
           _ (exec-op actor "t10a" {:op :actuation/issue-sanitization-certificate :subject "unit-1"} operator)
           _ (approve! actor "t10a")
           res (exec-op actor "t10" {:op :actuation/issue-sanitization-certificate :subject "unit-1"} operator)]
@@ -189,6 +206,37 @@
           res (exec-op actor "t13" {:op :actuation/issue-sanitization-certificate :subject "unit-3"} operator)]
       (is (= :hold (get-in res [:state :disposition])))
       (is (some #{:sanitization-incomplete} (-> (store/ledger db) last :basis)))
+      (is (empty? (store/sanitization-certificate-history db))))))
+
+(deftest drop-test-simulation-always-needs-approval
+  (testing "robotics/simulate-drop-test (ADR-2607152000, a REAL physics-2d free-fall/impact simulation) is never in any phase's :auto set -- always human approval, even when clean"
+    (let [[db actor] (fresh)
+          res (exec-op actor "t14" {:op :robotics/simulate-drop-test :subject "unit-1"} operator)]
+      (is (= :interrupted (:status res)))
+      (let [r2 (approve! actor "t14")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (true? (:drop-test-sim-verified? (store/trade-in-unit db "unit-1"))))
+        (is (number? (:sim-impact-decel-g (store/trade-in-unit db "unit-1")))
+            "a real physics-2d-simulated impact-deceleration reading was actually persisted")))))
+
+(deftest issue-sanitization-certificate-without-drop-test-simulation-is-held
+  (testing "actuation/issue-sanitization-certificate before the robot functional drop/shock-test mission ever ran -> HOLD (drop-test-missing), even though the data-wipe mission already ran"
+    (let [[db actor] (fresh)
+          _ (screen! actor "t15pre" "unit-1")
+          _ (simulate-data-wipe! actor "t15pre2" "unit-1")
+          res (exec-op actor "t15" {:op :actuation/issue-sanitization-certificate :subject "unit-1"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:drop-test-missing} (-> (store/ledger db) last :basis)))
+      (is (empty? (store/sanitization-certificate-history db))))))
+
+(deftest drop-test-out-of-tolerance-is-held
+  (testing "unit-5 (a small-form-factor mini-PC mistakenly routed through the standard portable drop-test procedure) has a drop-test simulation already on file (:drop-test-sim-verified? true), but its own REAL physics-2d-simulated impact-deceleration telemetry (:sim-impact-decel-g) is out of tolerance on INDEPENDENT recheck -> HOLD, never trusts the on-file verdict alone -- the trade-in-unit analog of automotive's vehicle-5"
+    (let [[db actor] (fresh)
+          res (exec-op actor "t16" {:op :actuation/issue-sanitization-certificate :subject "unit-5"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:drop-test-out-of-tolerance} (-> (store/ledger db) last :basis)))
+      (is (> (:sim-impact-decel-g (store/trade-in-unit db "unit-5")) 400.0)
+          "the real simulated telemetry on file genuinely exceeds decel-ceiling-g")
       (is (empty? (store/sanitization-certificate-history db))))))
 
 (deftest every-decision-leaves-one-ledger-fact

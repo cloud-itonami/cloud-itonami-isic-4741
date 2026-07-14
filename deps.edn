@@ -9,7 +9,21 @@
  :deps {io.github.kotoba-lang/langgraph
         {:local/root "../../kotoba-lang/langgraph"}
         io.github.kotoba-lang/robotics
-        {:local/root "../../kotoba-lang/robotics"}}
+        {:local/root "../../kotoba-lang/robotics"}
+        ;; REAL engineering-simulation dependency (ADR-2607152000, extending
+        ;; ADR-2607151600's automotive pilot to this vertical): techretail.
+        ;; robotics's NEW simulate-drop-test now actually calls physics-2d's
+        ;; real, tested world-step impulse/gravity solver -- a device rigid
+        ;; body free-falls under real gravity onto a static test-surface
+        ;; body, and a real, non-fabricated peak impact deceleration is read
+        ;; directly off the simulated trajectory -- instead of comparing
+        ;; static self-reported fields. No design-library sibling repo is
+        ;; needed here (unlike automotive's kami-engine-vehicle-designer
+        ;; pairing): this vertical's honest scope is the physics timestep
+        ;; itself, built directly inside techretail.robotics.
+        io.github.kotoba-lang/physics-2d
+        {:git/url "https://github.com/kotoba-lang/physics-2d.git"
+         :sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps

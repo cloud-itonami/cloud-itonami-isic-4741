@@ -10,21 +10,22 @@
   world shipment or Certificate-of-Data-Destruction issuance, so this
   MUST be a separate system able to *reject* a proposal and fall back
   to HOLD -- the computer-retailer analog of `cloud-itonami-isic-6512`'s
-  CasualtyGovernor and, for the robotics HARD check specifically, the
+  CasualtyGovernor and, for the robotics HARD checks specifically, the
   direct sibling of `automotive.governor` (`cloud-itonami-isic-2910`).
 
-  Seven checks, in priority order, ALL HARD violations: a human approver
+  Eight checks, in priority order, ALL HARD violations: a human approver
   CANNOT override them (you don't get to approve your way past a
   fabricated consumer-protection spec-basis, incomplete evidence, a
   robot data-wipe mission that never ran or that independently re-
-  checks incomplete, a mismatched order total, an unresolved trade-in
-  grading defect, or a double fulfillment/certificate-issuance). The
-  confidence/actuation gate is SOFT: it asks a human to look (low
-  confidence / actuation), and the human may approve -- but see
-  `techretail.phase`: for `:stake :actuation/fulfill-order`/
-  `:actuation/issue-sanitization-certificate` (a real act) NO phase
-  ever allows auto-commit either. Two independent layers agree that
-  actuation is always a human call.
+  checks incomplete, a functional drop/shock test that never ran or
+  that independently re-checks out-of-tolerance, a mismatched order
+  total, an unresolved trade-in grading defect, or a double
+  fulfillment/certificate-issuance). The confidence/actuation gate is
+  SOFT: it asks a human to look (low confidence / actuation), and the
+  human may approve -- but see `techretail.phase`: for `:stake
+  :actuation/fulfill-order`/`:actuation/issue-sanitization-certificate`
+  (a real act) NO phase ever allows auto-commit either. Two independent
+  layers agree that actuation is always a human call.
 
     1. Spec-basis                  -- did the consumer-protection
                                        requirements proposal cite an
@@ -54,13 +55,64 @@
                                        verdict the mission run itself
                                        stored -- the same 'ground
                                        truth, not self-report'
-                                       discipline check 4 below uses
+                                       discipline check 5 below uses
                                        for order totals, and
                                        `automotive.governor`'s
                                        `robotics-simulation-violations`
                                        established fleet-wide
                                        (ADR-2607142800).
-    4. Order total mismatch         -- for `:actuation/fulfill-order`,
+    4. Drop/shock-test mission
+       missing or independently
+       out-of-tolerance             -- for `:actuation/issue-
+                                       sanitization-certificate`, has
+                                       the robot functional drop/shock-
+                                       test mission (`techretail.
+                                       robotics`, ADR-2607152000)
+                                       actually run and been recorded
+                                       on the trade-in-unit
+                                       (`:drop-test-sim-verified?`)?
+                                       AND INDEPENDENTLY recompute
+                                       whether the device's own
+                                       recorded REAL `physics-2d`-
+                                       simulated impact-deceleration
+                                       telemetry (`:sim-impact-decel-g`)
+                                       falls outside a real tolerance
+                                       ceiling (`techretail.robotics/
+                                       drop-test-out-of-tolerance?`),
+                                       ignoring whatever :passed?
+                                       verdict the mission run itself
+                                       stored -- the SAME 'ground
+                                       truth, not self-report'
+                                       discipline check 3 above uses
+                                       for sanitization, and
+                                       `automotive.governor`'s
+                                       `robotics-simulation-violations`
+                                       (ADR-2607151600) established for
+                                       a REAL physics-2d-backed
+                                       telemetry field specifically.
+                                       DESIGN DECISION (see this ns's
+                                       own docstring context): this is
+                                       a SEPARATE check (and a SEPARATE
+                                       robot mission/op,
+                                       `:robotics/simulate-drop-test`)
+                                       rather than folded into check 6
+                                       below (`:trade-in-condition/
+                                       screen`) -- the drop/shock test
+                                       is a robot-executed, physically-
+                                       simulated, governor-independently-
+                                       rechecked MISSION (exactly like
+                                       the data-wipe mission it sits
+                                       beside), whereas `:trade-in-
+                                       condition/screen` is the
+                                       advisor's own cosmetic/functional
+                                       grading JUDGMENT call -- keeping
+                                       them separate preserves the
+                                       actor's existing clean split
+                                       between 'advisor screening
+                                       judgment' and 'robot-executed,
+                                       independently-rechecked physical
+                                       mission'.
+    5. Order total mismatch         -- for `:actuation/fulfill-order`,
                                        INDEPENDENTLY recompute whether
                                        the order's own recorded total
                                        reconciles with its own recorded
@@ -74,9 +126,10 @@
                                        vehicle-emissions-out-of-range?`
                                        and its siblings established the
                                        priors; `techretail.robotics/
-                                       sanitization-incomplete?` above
-                                       is a further instance).
-    5. Trade-in grading defect
+                                       sanitization-incomplete?`/
+                                       `drop-test-out-of-tolerance?`
+                                       above are further instances).
+    6. Trade-in grading defect
        unresolved                   -- reported by THIS proposal
                                        itself (a `:trade-in-condition/
                                        screen` that just found an
@@ -96,7 +149,7 @@
                                        via an actuation op against an
                                        unscreened device -- see this
                                        ns's own test suite.
-    6. Confidence floor / actuation
+    7. Confidence floor / actuation
        gate                          -- LLM confidence below threshold,
                                        OR the op is `:actuation/
                                        fulfill-order`/`:actuation/
@@ -186,6 +239,33 @@
           :detail (str subject " の消去後検証読取(post-wipe-recoverable-sectors-found="
                        (:post-wipe-recoverable-sectors-found u) ")が独立再検証で回復可能セクタ有りを検出")}]))))
 
+(defn- drop-test-violations
+  "For `:actuation/issue-sanitization-certificate`: HARD hold if the
+  robot functional drop/shock-test mission (`techretail.robotics`,
+  ADR-2607152000) never ran and was recorded on the trade-in-unit
+  (`:drop-test-sim-verified?`), OR if it did but an INDEPENDENT
+  recompute of the device's own recorded REAL `physics-2d`-simulated
+  impact-deceleration telemetry (`techretail.robotics/drop-test-out-
+  of-tolerance?`, `:sim-impact-decel-g` against `decel-ceiling-g`)
+  says out-of-tolerance right now -- never trusts the mission's own
+  stored :passed? verdict alone, the SAME discipline `data-wipe-
+  mission-violations` above uses for sanitization. See this ns's own
+  docstring for why this is a SEPARATE check from `data-wipe-mission-
+  violations` (a separate real physical mission/telemetry field, not a
+  restatement)."
+  [{:keys [op subject]} st]
+  (when (= op :actuation/issue-sanitization-certificate)
+    (let [u (store/trade-in-unit st subject)]
+      (cond
+        (not (:drop-test-sim-verified? u))
+        [{:rule :drop-test-missing
+          :detail (str subject " の機能落下/衝撃試験ミッションが未実行・未合格")}]
+
+        (robotics/drop-test-out-of-tolerance? u)
+        [{:rule :drop-test-out-of-tolerance
+          :detail (str subject " の実測衝撃減速度(sim-impact-decel-g=" (:sim-impact-decel-g u)
+                       "g)が独立再検証で許容上限(" robotics/decel-ceiling-g "g)を超過")}]))))
+
 (defn- order-total-mismatch-violations
   "For `:actuation/fulfill-order`, INDEPENDENTLY recompute whether the
   order's own recorded total reconciles with its own recorded line-
@@ -246,6 +326,7 @@
                    (concat (spec-basis-violations request proposal)
                            (evidence-incomplete-violations request st)
                            (data-wipe-mission-violations request st)
+                           (drop-test-violations request st)
                            (order-total-mismatch-violations request st)
                            (trade-in-defect-unresolved-violations request proposal st)
                            (already-fulfilled-violations request st)

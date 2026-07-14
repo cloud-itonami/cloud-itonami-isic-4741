@@ -43,6 +43,7 @@
   (:require #?(:clj  [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [techretail.registry :as registry]
+            [techretail.robotics :as robotics]
             [langchain.db :as d]))
 
 (defprotocol Store
@@ -66,10 +67,42 @@
 
 ;; ----------------------------- demo data -----------------------------
 
+(defn- with-drop-test-telemetry
+  "Merges REAL drop/shock-test impact telemetry onto a demo trade-in-
+  unit's base fields -- `techretail.robotics/drop-test-telemetry-for`
+  actually runs `physics-2d`'s time-stepped free-fall/impact simulation
+  for this unit's own `:device-class`/`:device-mass-kg` (ADR-2607152000),
+  so even the 'already on file' seed data (as if from an earlier real
+  functional drop/shock-test report) is genuinely simulation-derived,
+  never hand-typed doubles -- the SAME discipline `automotive.store/
+  with-crash-telemetry` (`cloud-itonami-isic-2910`, ADR-2607151600)
+  established for crash telemetry."
+  [base]
+  (merge base (select-keys (robotics/drop-test-telemetry-for base)
+                           [:sim-impact-decel-g :sim-impact-penetration-m])))
+
 (defn demo-data
   "A small, self-contained order + trade-in-unit set covering both
   actuation lifecycles (fulfilling an order, issuing a Certificate of
-  Data Destruction) so the actor + tests run offline."
+  Data Destruction) so the actor + tests run offline. `:device-class`/
+  `:device-mass-kg` (ADR-2607152000) are permanent trade-in-unit design
+  fields (like `automotive`'s `:class`/`:curb-mass-kg`);
+  `:sim-impact-decel-g`/`:sim-impact-penetration-m` are the REAL
+  `physics-2d`-computed drop/shock-test telemetry for those fields
+  (`with-drop-test-telemetry`), the ground truth `techretail.robotics/
+  drop-test-out-of-tolerance?` independently rechecks. unit-5 is a
+  small-form-factor mini-PC (desktop-class hardware, minimal internal
+  shock-absorbing 'give') that was mistakenly routed through the
+  STANDARD portable handheld/laptop drop-test intake procedure -- a
+  genuine ITAD workflow scope error (real practice does not functional-
+  drop-test a desktop-class chassis the way it does a laptop), which
+  the real, re-run simulation catches on independent recheck even
+  though `:drop-test-sim-verified? true` was seeded 'already on file'
+  (someone/something marked it passed without this real check ever
+  having run) -- the trade-in-unit analog of `automotive.store`'s
+  vehicle-5 (a misclassified pickup), which all of unit-1..4's
+  genuinely-consistent device-class/give combinations, below, clear
+  with real margin (see `techretail.robotics/decel-ceiling-g`)."
   []
   {:orders
    {"order-1" {:id "order-1" :customer-name "Kenji Sato"
@@ -97,30 +130,48 @@
                :trade-in-unit-id nil
                :order-fulfilled? false :status :intake}}
    :trade-in-units
-   {"unit-1" {:id "unit-1" :device-model "Sakura NoteBook Pro 14" :device-serial "SNP14-000123"
-              :jurisdiction "JPN"
-              :grading-defect-unresolved? false
-              :post-wipe-recoverable-sectors-found 0
-              :sanitization-sim-verified? false :sanitization-sim-record nil
-              :sanitization-certified? false :status :intake}
-    "unit-2" {:id "unit-2" :device-model "Atlantis UltraBook Air" :device-serial "AUA-000456"
-              :jurisdiction "JPN"
-              :grading-defect-unresolved? true
-              :post-wipe-recoverable-sectors-found 0
-              :sanitization-sim-verified? false :sanitization-sim-record nil
-              :sanitization-certified? false :status :intake}
-    "unit-3" {:id "unit-3" :device-model "鈴木デスクトップ DT-09" :device-serial "SZK-DT09-000789"
-              :jurisdiction "JPN"
-              :grading-defect-unresolved? false
-              :post-wipe-recoverable-sectors-found 4
-              :sanitization-sim-verified? true :sanitization-sim-record nil
-              :sanitization-certified? false :status :intake}
-    "unit-4" {:id "unit-4" :device-model "田中モニター一体型PC 27型" :device-serial "TNK-AIO27-000234"
-              :jurisdiction "JPN"
-              :grading-defect-unresolved? false
-              :post-wipe-recoverable-sectors-found 0
-              :sanitization-sim-verified? false :sanitization-sim-record nil
-              :sanitization-certified? false :status :intake}}})
+   (into {}
+         (map (fn [u] [(:id u) (with-drop-test-telemetry u)]))
+         [{:id "unit-1" :device-model "Sakura NoteBook Pro 14" :device-serial "SNP14-000123"
+           :jurisdiction "JPN"
+           :device-class :laptop :device-mass-kg 1.4
+           :grading-defect-unresolved? false
+           :post-wipe-recoverable-sectors-found 0
+           :sanitization-sim-verified? false :sanitization-sim-record nil
+           :drop-test-sim-verified? false :drop-test-sim-record nil
+           :sanitization-certified? false :status :intake}
+          {:id "unit-2" :device-model "Atlantis UltraBook Air" :device-serial "AUA-000456"
+           :jurisdiction "JPN"
+           :device-class :laptop :device-mass-kg 1.1
+           :grading-defect-unresolved? true
+           :post-wipe-recoverable-sectors-found 0
+           :sanitization-sim-verified? false :sanitization-sim-record nil
+           :drop-test-sim-verified? false :drop-test-sim-record nil
+           :sanitization-certified? false :status :intake}
+          {:id "unit-3" :device-model "鈴木デスクトップ DT-09" :device-serial "SZK-DT09-000789"
+           :jurisdiction "JPN"
+           :device-class :desktop-tower :device-mass-kg 8.5
+           :grading-defect-unresolved? false
+           :post-wipe-recoverable-sectors-found 4
+           :sanitization-sim-verified? true :sanitization-sim-record nil
+           :drop-test-sim-verified? false :drop-test-sim-record nil
+           :sanitization-certified? false :status :intake}
+          {:id "unit-4" :device-model "田中モニター一体型PC 27型" :device-serial "TNK-AIO27-000234"
+           :jurisdiction "JPN"
+           :device-class :monitor :device-mass-kg 6.0
+           :grading-defect-unresolved? false
+           :post-wipe-recoverable-sectors-found 0
+           :sanitization-sim-verified? false :sanitization-sim-record nil
+           :drop-test-sim-verified? false :drop-test-sim-record nil
+           :sanitization-certified? false :status :intake}
+          {:id "unit-5" :device-model "スペースセイバー Mini-PC MP-02" :device-serial "SSMP02-000567"
+           :jurisdiction "JPN"
+           :device-class :desktop-mini :device-mass-kg 3.5
+           :grading-defect-unresolved? false
+           :post-wipe-recoverable-sectors-found 0
+           :sanitization-sim-verified? true :sanitization-sim-record nil
+           :drop-test-sim-verified? true :drop-test-sim-record nil
+           :sanitization-certified? false :status :intake}])})
 
 ;; ----------------------------- shared commit logic -----------------------------
 
@@ -268,35 +319,52 @@
      :status (:order/status m) :fulfillment-number (:order/fulfillment-number m)}))
 
 (defn- trade-in-unit->tx [{:keys [id device-model device-serial jurisdiction
+                                   device-class device-mass-kg
+                                   sim-impact-decel-g sim-impact-penetration-m
                                    grading-defect-unresolved? post-wipe-recoverable-sectors-found
                                    sanitization-sim-verified? sanitization-sim-record
+                                   drop-test-sim-verified? drop-test-sim-record
                                    sanitization-certified? status certificate-number]}]
   (cond-> {:trade-in-unit/id id}
     device-model                                (assoc :trade-in-unit/device-model device-model)
     device-serial                                (assoc :trade-in-unit/device-serial device-serial)
     jurisdiction                                 (assoc :trade-in-unit/jurisdiction jurisdiction)
+    device-class                                 (assoc :trade-in-unit/device-class device-class)
+    device-mass-kg                               (assoc :trade-in-unit/device-mass-kg device-mass-kg)
+    sim-impact-decel-g                           (assoc :trade-in-unit/sim-impact-decel-g sim-impact-decel-g)
+    (some? sim-impact-penetration-m)             (assoc :trade-in-unit/sim-impact-penetration-m sim-impact-penetration-m)
     (some? grading-defect-unresolved?)           (assoc :trade-in-unit/grading-defect-unresolved? grading-defect-unresolved?)
     (some? post-wipe-recoverable-sectors-found)  (assoc :trade-in-unit/post-wipe-recoverable-sectors-found post-wipe-recoverable-sectors-found)
     (some? sanitization-sim-verified?)           (assoc :trade-in-unit/sanitization-sim-verified? sanitization-sim-verified?)
     (some? sanitization-sim-record)              (assoc :trade-in-unit/sanitization-sim-record (enc sanitization-sim-record))
+    (some? drop-test-sim-verified?)              (assoc :trade-in-unit/drop-test-sim-verified? drop-test-sim-verified?)
+    (some? drop-test-sim-record)                 (assoc :trade-in-unit/drop-test-sim-record (enc drop-test-sim-record))
     (some? sanitization-certified?)              (assoc :trade-in-unit/sanitization-certified? sanitization-certified?)
     status                                       (assoc :trade-in-unit/status status)
     certificate-number                           (assoc :trade-in-unit/certificate-number certificate-number)))
 
 (def ^:private trade-in-unit-pull
   [:trade-in-unit/id :trade-in-unit/device-model :trade-in-unit/device-serial :trade-in-unit/jurisdiction
+   :trade-in-unit/device-class :trade-in-unit/device-mass-kg
+   :trade-in-unit/sim-impact-decel-g :trade-in-unit/sim-impact-penetration-m
    :trade-in-unit/grading-defect-unresolved? :trade-in-unit/post-wipe-recoverable-sectors-found
    :trade-in-unit/sanitization-sim-verified? :trade-in-unit/sanitization-sim-record
+   :trade-in-unit/drop-test-sim-verified? :trade-in-unit/drop-test-sim-record
    :trade-in-unit/sanitization-certified? :trade-in-unit/status :trade-in-unit/certificate-number])
 
 (defn- pull->trade-in-unit [m]
   (when (:trade-in-unit/id m)
     {:id (:trade-in-unit/id m) :device-model (:trade-in-unit/device-model m) :device-serial (:trade-in-unit/device-serial m)
      :jurisdiction (:trade-in-unit/jurisdiction m)
+     :device-class (:trade-in-unit/device-class m) :device-mass-kg (:trade-in-unit/device-mass-kg m)
+     :sim-impact-decel-g (:trade-in-unit/sim-impact-decel-g m)
+     :sim-impact-penetration-m (:trade-in-unit/sim-impact-penetration-m m)
      :grading-defect-unresolved? (boolean (:trade-in-unit/grading-defect-unresolved? m))
      :post-wipe-recoverable-sectors-found (:trade-in-unit/post-wipe-recoverable-sectors-found m)
      :sanitization-sim-verified? (boolean (:trade-in-unit/sanitization-sim-verified? m))
      :sanitization-sim-record (dec* (:trade-in-unit/sanitization-sim-record m))
+     :drop-test-sim-verified? (boolean (:trade-in-unit/drop-test-sim-verified? m))
+     :drop-test-sim-record (dec* (:trade-in-unit/drop-test-sim-record m))
      :sanitization-certified? (boolean (:trade-in-unit/sanitization-certified? m))
      :status (:trade-in-unit/status m) :certificate-number (:trade-in-unit/certificate-number m)}))
 
