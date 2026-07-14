@@ -1,0 +1,12 @@
+{:itonami.blueprint/id "cloud-itonami-isic-4741"
+ :itonami.blueprint/name "Retail Sale of Computers, Peripheral Equipment and Software in Specialized Stores"
+ :itonami.blueprint/isic-rev5 "4741"
+ :itonami.blueprint/domain :retail/computer-and-peripheral-retail
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:consumer-protection :data-privacy :e-waste-reduction :circular-economy]
+ :itonami.blueprint/governor :retail-governor
+ :itonami.blueprint/robotics true
+ :itonami.blueprint/required-technologies [:robotics :identity :dmn :bpmn :audit-ledger]
+ :itonami.blueprint/optional-technologies [:forms :retail :optimization]
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented}
