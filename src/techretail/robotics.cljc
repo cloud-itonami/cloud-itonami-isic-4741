@@ -67,6 +67,30 @@
   alone gets the real `physics-2d` treatment; this ns does not force-
   fit physics onto the data-wipe mission.
 
+  ADR-2607998500 (closing out the 6-vertical digital-twin wave
+  ADR-2607160000 started, following `quarryops`/isic-0810's own
+  free-fall-physics precedent -- ADR-2607995500) EXTENDS the drop/
+  shock-test physics with a real CAD/BREP bridge (`techretail.cad`),
+  closing the gap this ns's docstring used to disclose ('the device is
+  a single AABB box ... `:device-mass-kg` is passed straight through'
+  with NO real per-device dimension of its own): the `:device` body's
+  AABB half-extents are now genuinely derived from `techretail.cad/
+  envelope-dims-mm`'s tessellated device-envelope dims for THIS trade-
+  in-unit (`device-half-extents-m` below) when a real `:device-length-
+  mm`/`:device-width-mm`/`:device-height-mm` intake measurement is on
+  file, instead of always being the bare fixed `device-half-w-m`/
+  `device-half-h-m` constants. Mirrors `quarryops.robotics`'s own CAD
+  bridge (ADR-2607995500) in BOTH spirit AND specific axis mapping
+  (deriving the MOVING body from CAD, leaving the static `:test-
+  surface` body a FIXED test-rig constant, unchanged; HEIGHT feeds the
+  vertical fall-axis half-extent, LENGTH feeds the lateral half-extent)
+  -- checked against this ns's own placement algebra, not assumed to
+  carry over unchanged; see `techretail.cad`'s own docstring for the
+  ONE genuine difference from `quarryops.cad` (this ns's pre-ADR AABB
+  was already a bare FIXED constant, not a mass-derived formula, so
+  `techretail.cad`'s own defaults are fixed literals, not a formula
+  redefinition).
+
   Pure data + pure functions -- no real robot I/O, no network.
   `kotoba.robotics` is itself \"policy, not control\"; `physics-2d`'s
   own `world-step` is a pure fixed-timestep integrator (no wall-clock/
@@ -75,6 +99,7 @@
   device's own recorded fields, so tests and the demo run offline
   exactly like every other sibling namespace in this fleet."
   (:require [kotoba.robotics :as robotics]
+            [techretail.cad :as cad]
             [physics-2d :as p2d]))
 
 (def mission-actions
@@ -238,7 +263,15 @@
   overlaps the test-surface head-on in this 1-D vertical-drop
   projection; no tip-over/edge-first impact is modeled (disclosed
   simplification, matching automotive's own 'no offset/oblique impact'
-  disclosure for its horizontal collision)."
+  disclosure for its horizontal collision). ADR-2607998500: no longer
+  read directly by `run-drop-simulation` (superseded by `techretail.
+  cad`-derived per-trade-in-unit dims when a real intake measurement is
+  on file, see `device-half-extents-m` below), retained PUBLIC as a
+  disclosed reference figure -- `techretail.cad/default-device-length-
+  mm` is DELIBERATELY chosen to reproduce this exact figure (0.15 m
+  half-width = 300 mm full length), so a trade-in-unit with no real
+  `:device-length-mm` intake measurement on file gets the SAME device
+  AABB width this ns always used, before this ADR and after it."
   0.15)
 
 (def ^:const device-half-h-m
@@ -246,8 +279,44 @@
   for a closed laptop-class trade-in device. A disclosed geometric
   simplification (a real device is not a uniform box), the same
   'packaging-envelope box, not a styled body' honesty automotive's
-  vehicle AABB already discloses."
+  vehicle AABB already discloses. ADR-2607998500: no longer read
+  directly by `run-drop-simulation` (superseded by `techretail.cad`-
+  derived per-trade-in-unit dims when a real intake measurement is on
+  file, see `device-half-extents-m` below), retained PUBLIC as a
+  disclosed reference figure -- `techretail.cad/default-device-height-
+  mm` is DELIBERATELY chosen to reproduce this exact figure (0.01 m
+  half-thickness = 20 mm full thickness), so a trade-in-unit with no
+  real `:device-height-mm` intake measurement on file gets the SAME
+  device AABB thickness (and therefore the SAME simulated `:sim-impact-
+  decel-g`) this ns always used, before this ADR and after it."
   0.01)
+
+(defn device-half-extents-m
+  "AABB half-extents (m) for the `:device` body, from `techretail.cad/
+  envelope-dims-mm`'s REAL dims (mm) for `trade-in-unit` -- lateral
+  half-width = length/2, VERTICAL (fall-axis) half-height = height/2.
+  Mirrors `quarryops.robotics/fragment-half-extents-m`'s own axis
+  mapping (this vertical's physics is ALSO a VERTICAL free-fall under
+  gravity, the fall axis is Y, matching this ns's own `world-gravity`/
+  `run-drop-simulation`), GENUINELY DIFFERENT from `autoparts.robotics/
+  specimen-half-extents-m`'s/`fab.simphysics/specimen-half-extents-m`'s
+  own length/width-only reading for their horizontal pull-test physics
+  -- see `techretail.cad`'s own docstring for the full axis-mapping
+  disclosure and for the ONE genuine difference from `quarryops.cad`
+  (fixed-literal defaults here, not a mass-derived formula).
+  `envelope-dims-mm` always returns SOME dims (a trade-in-unit's own
+  real `:device-*-mm` intake fields when present, `techretail.cad`'s
+  disclosed FIXED defaults when absent), so this always succeeds; it
+  is the INPUT (whether `trade-in-unit` carries a real intake
+  measurement) that varies, not this function's availability. PUBLIC
+  (unlike `autoparts.robotics/specimen-half-extents-m`, which is
+  private): exposed so a test/caller can directly verify CAD dims are
+  genuinely being read, mirroring `quarryops.robotics/fragment-half-
+  extents-m`'s own public visibility for the same reason."
+  [trade-in-unit]
+  (let [{:keys [length-mm height-mm]} (cad/envelope-dims-mm trade-in-unit)]
+    {:half-w (/ length-mm 2000.0)
+     :half-h (/ height-mm 2000.0)}))
 
 (def ^:const floor-half-w-m
   "Test-surface AABB half-width (m) -- wide enough the device's full
@@ -295,7 +364,76 @@
 
     {:trajectory [{:tick :position :velocity} ...]   ; device body only
      :sim-impact-decel-g n :sim-impact-penetration-m n
-     :ticks n :dt n :impact-mps n}
+     :ticks n :dt n :impact-mps n
+     :device-half-extents-m {:half-w n :half-h n}}
+
+  ADR-2607998500 EXTENDS this fn with a real CAD/BREP bridge:
+  `trade-in-unit` may also carry a real `:device-length-mm`/`:device-
+  width-mm`/`:device-height-mm` intake measurement, in which case the
+  `:device` body's AABB half-extents are genuinely derived from
+  `techretail.cad/envelope-dims-mm`'s dims for THIS trade-in-unit
+  (`device-half-extents-m`) instead of always being the bare fixed
+  `device-half-w-m`/`device-half-h-m` constants. When absent, the SAME
+  fixed-size AABB this fn used before this ADR (`techretail.cad`'s
+  disclosed fixed-literal default -- `device-half-extents-m` reduces to
+  the identical size in that case). The test-surface `:test-surface`
+  body's AABB stays a FIXED test-rig constant, unchanged -- mirroring
+  how `autoparts.robotics`/`fab.simphysics`/`quarryops.robotics` only
+  ever derive the MOVING body from CAD and leave the static boundary/
+  fixture fixed.
+
+  GEOMETRY-INVARIANCE, VERIFIED EMPIRICALLY (checked against THIS
+  vertical's own physics, not assumed to behave like `quarryops.
+  robotics`'s own free-fall case even though both are vertical-drop
+  physics -- ADR-2607998500 explicitly calls for this; see `robotics_
+  test.clj` for the actual sweep, not just the algebra below). Just
+  like `fragment-start-y` in `quarryops.robotics`, `device-y0` here is
+  computed as `floor-top + drop-height-m + half-h`, i.e. the device's
+  own BOTTOM face (`device-y0 - half-h`) always starts EXACTLY
+  `drop-height-m` above the test-surface's TOP face, regardless of
+  `half-h` -- it cancels out of the placement algebra in EXACT
+  (real-number) arithmetic.
+
+  A SECOND, structural reason this vertical's invariance is, empirically,
+  EVEN STRONGER than `quarryops.robotics`'s own finding (checked, not
+  assumed to be identical): `dt` here is `give-for(device-class) / v0`
+  -- a function of `:device-class` and the fixed `drop-height-m`/
+  `gravity-mps2` constants ALONE, never of `:device-length-mm`/
+  `:device-width-mm`/`:device-height-mm` (see `techretail.cad`'s ns
+  docstring, which discloses this orthogonality explicitly). `ticks`
+  (`fall-ticks + settle-ticks`) is likewise computed from `fall-time-s`/
+  `dt` alone, with NO dependency on the AABB collider size or on
+  detecting when overlap actually first occurs (unlike `quarryops.
+  robotics`'s `run-until-settled`, which loops until a real settle
+  condition). So geometry cannot, even in principle, shift which
+  DISCRETE TICK this fn evaluates up to -- a stronger structural
+  guarantee than `quarryops.robotics`'s own dt-independent-of-geometry
+  argument, not merely an assumed carry-over. An EMPIRICAL sweep in
+  `robotics_test.clj` (every real `:device-class`, several masses, and
+  device dims spanning `half-h` from ~50 nanometers to ~950 meters,
+  including several pathological/non-physical extremes) found
+  `:sim-impact-decel-g`/`:ticks`/`:dt`/`:impact-mps` BIT-IDENTICAL
+  across every (class, mass, geometry) combination tried -- no
+  divergence found, and (per the structural argument above) none
+  expected for ANY geometry input, not just the ones swept.
+
+  `:sim-impact-penetration-m` is the ONE field with a measurable, if
+  tiny, real divergence -- but a MUCH SMALLER one than `quarryops.
+  robotics`'s own analogous `:sim-settling-distance-m` finding (bounded
+  ~1e-9 there): the same `half-h` ALSO cancels algebraically out of
+  `penetrations-m`'s own formula (`floor-top - position + half-h`,
+  where `position` already carries `+half-h` from `device-y0`), so in
+  EXACT arithmetic `:sim-impact-penetration-m` reduces to a function of
+  the actual distance travelled alone, independent of `half-h` --
+  UNLIKE `quarryops.robotics`'s `:sim-settling-distance-m`, this fn has
+  no persistent multi-thousand-tick resting-contact oscillation for
+  floating-point noise to accumulate across (`ticks` here is a small,
+  fixed `fall-ticks + settle-ticks`, typically a few hundred, not a
+  ~3000-tick `max-ticks` ceiling), so the residual double-rounding
+  divergence measured across the SAME sweep above stayed under 5e-13 --
+  itself a real, disclosed, bounded (not silently rounded away) finding,
+  not asserted as exact `=` equality; see `robotics_test.clj` for the
+  measured bound.
 
   What is REAL: the device and the test-surface are actual `physics_2d`
   `Body2D`/AABB `Collider2D` entities; `physics_2d/world-step` actually
@@ -340,19 +478,20 @@
   SAME v^2=2ad vs a=v/dt-with-dt=d/v identity `vdesign.simphysics`
   documents, applied here to a vertical free fall instead of a
   horizontal crash."
-  [{:keys [device-class device-mass-kg]}]
+  [{:keys [device-class device-mass-kg] :as trade-in-unit}]
   (let [give        (give-for device-class)
         mass        (double (or device-mass-kg 1.0))
         v0          (sqrt* (* 2.0 gravity-mps2 drop-height-m))
         dt          (/ give v0)
+        {:keys [half-w half-h] :as half-extents} (device-half-extents-m trade-in-unit)
         floor-top   floor-half-h-m
-        device-y0   (+ floor-top drop-height-m device-half-h-m)
+        device-y0   (+ floor-top drop-height-m half-h)
         fall-time-s (sqrt* (/ (* 2.0 drop-height-m) gravity-mps2))
         fall-ticks  (long (ceil* (/ fall-time-s dt)))
         ticks       (+ fall-ticks settle-ticks)
         device (p2d/make-body {:position [0.0 device-y0] :velocity [0.0 0.0]
                                 :mass mass :restitution 0.0 :friction 0.0
-                                :collider (p2d/make-aabb-collider device-half-w-m device-half-h-m)
+                                :collider (p2d/make-aabb-collider half-w half-h)
                                 :user-data :device})
         test-surface (p2d/make-body {:position [0.0 0.0] :velocity [0.0 0.0]
                                       :mass 0.0 :restitution 0.0 :friction 0.0
@@ -370,14 +509,15 @@
         peak-decel-mps2 (->> (map (fn [va vb] (abs* (/ (- vb va) dt))) vys (rest vys))
                               (reduce max 0.0))
         penetrations-m (mapv (fn [{:keys [position]}]
-                                (max 0.0 (- floor-top (- (second position) device-half-h-m))))
+                                (max 0.0 (- floor-top (- (second position) half-h))))
                               trajectory)]
     {:trajectory trajectory
      :sim-impact-decel-g (/ peak-decel-mps2 gravity-mps2)
      :sim-impact-penetration-m (reduce max 0.0 penetrations-m)
      :ticks (count trajectory)
      :dt dt
-     :impact-mps v0}))
+     :impact-mps v0
+     :device-half-extents-m half-extents}))
 
 (def ^:const crosscheck-ratio-low
   "Lower bound of the sim/closed-form `:sim-impact-decel-g` ratio
