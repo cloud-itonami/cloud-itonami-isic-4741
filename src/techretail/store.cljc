@@ -40,11 +40,10 @@
   an immutable log -- the audit trail a community trusting a computer
   retailer's trade-in program needs, and the evidence a retailer needs
   if a fulfillment or data-destruction decision is later disputed."
-  (:require #?(:clj  [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [techretail.registry :as registry]
+  (:require [techretail.registry :as registry]
             [techretail.robotics :as robotics]
-            [langchain.db :as d]))
+            [langchain.db :as d]
+            [langchain-store.core :as ls]))
 
 (defprotocol Store
   (order [s id])
@@ -285,8 +284,8 @@
    :fulfillment-sequence/jurisdiction     {:db/unique :db.unique/identity}
    :sanitization-sequence/jurisdiction    {:db/unique :db.unique/identity}})
 
-(defn- enc [v] (pr-str v))
-(defn- dec* [s] (when s (edn/read-string s)))
+(defn- enc [v] (ls/enc v))
+(defn- dec* [s] (ls/dec* s))
 
 (defn- order->tx [{:keys [id customer-name jurisdiction items
                            order-total-actual order-total-tolerance

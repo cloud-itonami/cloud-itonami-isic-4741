@@ -44,7 +44,12 @@
         ;; autoparts.scene/fab.scene/quarryops.scene document).
         io.github.kotoba-lang/org-iso-10303
         {:git/url "https://github.com/kotoba-lang/org-iso-10303.git"
-         :sha "a1de3b075bcdcfbfb75c781eb88e3d07195831cf"}}
+         :sha "a1de3b075bcdcfbfb75c781eb88e3d07195831cf"}
+        ;; shared langchain.db store seam (EDN-blob codec + identity
+        ;; schema + field-spec entity helpers) -- the codec store.cljc
+        ;; uses instead of hand-rolling enc/dec* (ADR-2607141600).
+        io.github.kotoba-lang/langchain-store
+        {:local/root "../../kotoba-lang/langchain-store"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps
