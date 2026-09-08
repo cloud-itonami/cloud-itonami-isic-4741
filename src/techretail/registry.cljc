@@ -33,7 +33,7 @@
   `techretail.operation`'s `:actuation/fulfill-order`/`:actuation/
   issue-sanitization-certificate`, always human-gated -- see README
   `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is the
@@ -82,7 +82,7 @@
     (throw (ex-info "order-fulfillment: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "order-fulfillment: sequence must be >= 0" {})))
-  (let [fulfillment-number (str (str/upper-case jurisdiction) "-FUL-" (zero-pad sequence 6))
+  (let [fulfillment-number (str (str/upper jurisdiction) "-FUL-" (zero-pad sequence 6))
         record {"record_id" fulfillment-number
                 "kind" "order-fulfillment-draft"
                 "order_id" order-id
@@ -108,7 +108,7 @@
     (throw (ex-info "sanitization-certificate: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "sanitization-certificate: sequence must be >= 0" {})))
-  (let [certificate-number (str (str/upper-case jurisdiction) "-COD-" (zero-pad sequence 6))
+  (let [certificate-number (str (str/upper jurisdiction) "-COD-" (zero-pad sequence 6))
         record {"record_id" certificate-number
                 "kind" "sanitization-certificate-draft"
                 "trade_in_unit_id" trade-in-unit-id
