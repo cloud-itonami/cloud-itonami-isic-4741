@@ -9,9 +9,9 @@ The capability layer lives in `kotoba-lang/*` libraries
 operator contracts.
 
 ```bash
-clojure -M:dev:test
-clojure -M:lint
-clojure -M:dev:run
+kbb -M:dev:test
+kbb -M:lint
+kbb -M:dev:run
 ```
 
 ## Rules
