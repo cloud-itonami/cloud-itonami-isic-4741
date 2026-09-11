@@ -1,5 +1,5 @@
 (ns techretail.sim
-  "Demo driver -- `clojure -M:dev:run`. `robotics/simulate-drop-test`
+  "Demo driver -- `kbb -M:dev:run`. `robotics/simulate-drop-test`
   (ADR-2607152000, extending ADR-2607151600's automotive pilot to this
   vertical) now actually runs `physics-2d`'s real time-stepped free-
   fall/impact simulation for a trade-in device's own `:device-class`/
