@@ -1,0 +1,39 @@
+(ns techretail.physics-probe-test
+  "The probe is the bot's only source of \"measured\"; these pin that it
+  measures (every run numeric, count = expected), that the numbers come
+  from the simulation (the time-stepped reading tracks the closed form
+  within the documented band, a stiffer class reads higher), and that a
+  changed solver would show."
+  (:require [clojure.test :refer [deftest is testing]]
+            [techretail.physics-probe :as probe]
+            [techretail.robotics :as robotics]))
+
+(deftest probe-measures-every-run
+  (let [p (probe/probe)]
+    (is (= "itonami.physical-ai.probe.v1" (:physics-probe/schema p)))
+    (is (pos? (:count p)))
+    (is (= (:count p) (:expected p) (count (:runs p))))
+    (testing "every run carries a numeric decel and tick count from the trajectory"
+      (doseq [r (:runs p)]
+        (is (number? (get-in r [:quantities :sim-impact-decel-g])))
+        (is (pos? (get-in r [:quantities :ticks])))))))
+
+(deftest stiffer-class-reads-a-harder-impact
+  (let [by-class (into {} (map (juxt #(get-in % [:input :device-class])
+                                     #(get-in % [:quantities :sim-impact-decel-g])))
+                       (:runs (probe/probe)))
+        order (sort-by (fn [c] (- (get robotics/device-give-m c))) (keys by-class))]
+    (testing "smaller give (stiffer chassis) -> larger simulated deceleration"
+      (is (apply < (map by-class order))))))
+
+(deftest seeded-fixtures-land-on-both-sides-of-the-ceiling
+  (let [runs (:runs (probe/probe))
+        find-class (fn [c] (first (filter #(= c (get-in % [:input :device-class])) runs)))]
+    (is (false? (:out-of-tolerance? (find-class :laptop))))
+    (is (true? (:out-of-tolerance? (find-class :desktop-mini))))
+    (is (= :desktop-mini (get-in (probe/probe) [:derived :worst-class])))))
+
+(deftest sim-tracks-closed-form-inside-the-documented-band
+  (let [[lo hi] (get-in (probe/probe) [:derived :sim-over-closed-form-range])]
+    (is (<= robotics/crosscheck-ratio-low lo hi robotics/crosscheck-ratio-high))))
+
