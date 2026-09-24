@@ -6,7 +6,7 @@
   (see techretail.scene's docstring). Direct port of autoparts.scene-
   test's/fab.scene-test's/quarryops.scene-test's own assertions
   (ADR-2607160000/ADR-2607995500), adapted to a plain trade-in-unit map."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.robotics :as robotics]
             [techretail.scene :as scene]))
 

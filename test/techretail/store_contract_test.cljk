@@ -7,7 +7,7 @@
   actor, and this actor's own `techretail.store` ns docstring for why
   there are TWO entity directories (order / trade-in-unit) instead of
   one."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.store :as store]))
 
 (defn- backends []
