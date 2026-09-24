@@ -22,7 +22,7 @@
   simulation`'s own docstring for the full narrative of what was
   checked and found, including the ONE way this vertical's finding is
   even STRONGER than `quarryops.robotics`'s own."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.cad :as cad]
             [techretail.robotics :as robotics]))
 

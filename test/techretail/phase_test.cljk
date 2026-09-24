@@ -3,7 +3,7 @@
   regress on: `:actuation/fulfill-order`/`:actuation/issue-
   sanitization-certificate` must NEVER be a member of any phase's
   `:auto` set."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.phase :as phase]))
 
 (deftest fulfill-order-never-auto-at-any-phase

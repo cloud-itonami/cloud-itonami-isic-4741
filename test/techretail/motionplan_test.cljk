@@ -8,7 +8,7 @@
   mission) and NOT to the physics-simulated device's own free-fall
   trajectory (which this ns does not, and should not, plan a route
   through)."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.cad :as cad]
             [techretail.motionplan :as motionplan]
             [techretail.robotics :as robotics]))

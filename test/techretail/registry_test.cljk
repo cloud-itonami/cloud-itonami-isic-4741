@@ -1,5 +1,5 @@
 (ns techretail.registry-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [techretail.registry :as r]))
 
 ;; ----------------------------- order-total-mismatch? -----------------------------

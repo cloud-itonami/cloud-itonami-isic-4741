@@ -6,7 +6,7 @@
   techretail.cad's own docstring for why: techretail.robotics's
   pre-ADR AABB was already a bare fixed constant, not mass-derived),
   and envelope-solid/envelope-mesh's genuine tessellation output."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.cad :as cad]
             [techretail.robotics :as robotics]))
 

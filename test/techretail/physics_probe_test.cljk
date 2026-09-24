@@ -4,7 +4,7 @@
   from the simulation (the time-stepped reading tracks the closed form
   within the documented band, a stiffer class reads higher), and that a
   changed solver would show."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [techretail.physics-probe :as probe]
             [techretail.robotics :as robotics]))
 
